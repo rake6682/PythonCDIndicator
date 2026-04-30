@@ -1,0 +1,50 @@
+{
+  "window": {
+    "width": 1280,
+    "height": 720,
+    "title": "CD Indicator"
+  },
+  "rectangles": {
+    "width": 60,
+    "height": 60,
+    "spacing": 10,
+    "bottom_offset": 20
+  },
+  "colors": {
+    "rect_ready": [50, 150, 255],
+    "rect_ready_alpha": 180,
+    "rect_cooldown": [100, 50, 200],
+    "rect_cooldown_alpha": 180,
+    "rect_cooldown_bar": [150, 100, 50],
+    "rect_cooldown_bar_alpha": 180,
+    "rect_border": [255, 255, 255],
+    "rect_border_alpha": 100,
+    "rect_border_width": 2,
+    "equipped_indicator": [255, 255, 0],
+    "equipped_indicator_width": 3,
+    "right_click_indicator": [255, 100, 100],
+    "right_click_indicator_alpha": 150,
+    "right_click_indicator_size": 10
+  },
+  "timers": {
+    "update_interval_ms": 16,
+    "roblox_check_interval_ms": 500
+  },
+  "skills": {
+    "0": { "left": 3.0, "right": 3.0 },
+    "1": { "left": 3.0, "right": 3.0 },
+    "2": { "left": 3.0, "right": 3.0 },
+    "3": { "left": 3.0, "right": 3.0 },
+    "4": { "left": 3.0, "right": 3.0 },
+    "5": { "left": 3.0, "right": 3.0 },
+    "6": { "left": 3.0, "right": 3.0 },
+    "7": { "left": 3.0, "right": 3.0 },
+    "8": { "left": 3.0, "right": 3.0 },
+    "9": { "left": 3.0, "right": 3.0 },
+    "10": { "left": 3.0, "right": 3.0 },
+    "11": { "left": 3.0, "right": 3.0 }
+  },
+  "visibility": {
+    "roblox_window_name": "Roblox"
+  }
+}
