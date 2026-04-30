@@ -14,9 +14,9 @@
   },
   "colors": {
     "rect_ready": [50, 150, 255],
-    "rect_ready_alpha": 180,
+    "rect_ready_alpha": 100,
     "rect_cooldown": [100, 50, 200],
-    "rect_cooldown_alpha": 180,
+    "rect_cooldown_alpha": 100,
     "rect_cooldown_bar": [150, 100, 50],
     "rect_cooldown_bar_alpha": 180,
     "rect_border": [255, 255, 255],
@@ -25,7 +25,7 @@
     "equipped_indicator": [255, 255, 0],
     "equipped_indicator_width": 3,
     "right_click_indicator": [255, 100, 100],
-    "right_click_indicator_alpha": 150,
+    "right_click_indicator_alpha": 75,
     "right_click_indicator_size": 10
   },
   "timers": {
@@ -34,9 +34,9 @@
   },
   "skills": {
     "0": { "left": 0.0, "right": 2.4},
-    "1": { "left": 7.3, "right": 0.0 },
-    "2": { "left": 7.3, "right": 0.0 },
-    "3": { "left": 8.8, "right": 0.0 },
+    "1": { "left": 8.8, "right": 0.0 },
+    "2": { "left": 10, "right": 0.0 },
+    "3": { "left": 0, "right": 0.0 },
     "4": { "left": 30.8, "right": 0.0 },
     "5": { "left": 10.5, "right": 0.0 },
     "6": { "left": 10.5, "right": 0.0 },
