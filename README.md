@@ -34,7 +34,8 @@ A cooldown indicator program for video games, displaying 12 skill slots with sep
 Install the required dependency:
 
 ```bash
-pip install pygame
+pip install PyQt5
+pip install pynput
 ```
 
 ## Running
