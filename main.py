@@ -131,6 +131,7 @@ class TransparentOverlay(QMainWindow):
         """Handle global key presses"""
         try:
             # Handle special keys; Enter to force show, Esc to toggle, / to force hide
+            # L to reset cooldowns (for testing)
             if key == keyboard.Key.enter:
                 self.manual_visibility = True
                 return
@@ -144,6 +145,14 @@ class TransparentOverlay(QMainWindow):
             # Handle / key
             if hasattr(key, 'char') and key.char == '/':
                 self.manual_visibility = False
+                return
+
+            # Handle L key (reset cooldowns and equipped skill for testing)
+            if hasattr(key, 'char') and key.char == 'l':
+                for skill in self.skills.values():
+                    skill['left_cooldown'] = 0
+                    skill['right_cooldown'] = 0
+                self.currently_equipped = None
                 return
             
             # Map pynput keys to skill indices

@@ -1,16 +1,16 @@
 {
   "window": {
     "width": 2560,
-    "height": 1440,
+    "height": 2560,
     "title": "CD Indicator"
   },
   "rectangles": {
     "width": 60,
     "height": 60,
-    "spacing": 10,
+    "spacing": 12,
     "bottom_offset": 0,
-    "start_x": 851,
-    "start_y": 1300 
+    "start_x": 853,
+    "start_y": 1370 
   },
   "colors": {
     "rect_ready": [50, 150, 255],
@@ -33,18 +33,18 @@
     "roblox_check_interval_ms": 500
   },
   "skills": {
-    "0": { "left": 3.0, "right": 0 },
-    "1": { "left": 3.0, "right": 3.0 },
-    "2": { "left": 3.0, "right": 3.0 },
-    "3": { "left": 3.0, "right": 3.0 },
-    "4": { "left": 3.0, "right": 3.0 },
-    "5": { "left": 3.0, "right": 3.0 },
-    "6": { "left": 3.0, "right": 3.0 },
-    "7": { "left": 3.0, "right": 3.0 },
-    "8": { "left": 3.0, "right": 3.0 },
-    "9": { "left": 3.0, "right": 3.0 },
-    "10": { "left": 3.0, "right": 3.0 },
-    "11": { "left": 3.0, "right": 3.0 }
+    "0": { "left": 0.0, "right": 2.4},
+    "1": { "left": 7.3, "right": 0.0 },
+    "2": { "left": 7.3, "right": 0.0 },
+    "3": { "left": 8.8, "right": 0.0 },
+    "4": { "left": 30.8, "right": 0.0 },
+    "5": { "left": 10.5, "right": 0.0 },
+    "6": { "left": 10.5, "right": 0.0 },
+    "7": { "left": 0.0, "right": 10 },
+    "8": { "left": 0.0, "right": 3 },
+    "9": { "left": 2, "right": 0.0 },
+    "10": { "left": 35, "right": 0.0 },
+    "11": { "left": 35, "right": 0.0 }
   },
   "visibility": {
     "roblox_window_name": "Roblox"
