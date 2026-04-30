@@ -35,6 +35,8 @@ RECT_WIDTH = CONFIG['rectangles']['width']
 RECT_HEIGHT = CONFIG['rectangles']['height']
 RECT_SPACING = CONFIG['rectangles']['spacing']
 RECT_BOTTOM_OFFSET = CONFIG['rectangles']['bottom_offset']
+RECT_START_X = CONFIG['rectangles'].get('start_x', None)
+RECT_START_Y = CONFIG['rectangles'].get('start_y', None)
 
 COLORS = CONFIG['colors']
 TIMERS = CONFIG['timers']
@@ -139,8 +141,6 @@ class TransparentOverlay(QMainWindow):
                     self.manual_visibility = not self.manual_visibility
                 return
 
-                return
-            
             # Handle / key
             if hasattr(key, 'char') and key.char == '/':
                 self.manual_visibility = False
@@ -153,12 +153,12 @@ class TransparentOverlay(QMainWindow):
             
             if hasattr(key, 'char') and key.char in key_map:
                 skill_index = key_map[key.char]
-                
-                # Toggle: if already equipped, unequip; otherwise equip
-                if self.currently_equipped == skill_index:
-                    self.currently_equipped = None
-                else:
-                    self.currently_equipped = skill_index
+                if self.manual_visibility == True or (self.manual_visibility is None and self.overlay_visible):
+                    # Toggle: if already equipped, unequip; otherwise equip; only when not hidden 
+                    if self.currently_equipped == skill_index:
+                        self.currently_equipped = None
+                    else:
+                        self.currently_equipped = skill_index
         except AttributeError:
             pass
     
@@ -214,10 +214,8 @@ class TransparentOverlay(QMainWindow):
         rect_height = RECT_HEIGHT
         rect_spacing = RECT_SPACING
         
-        # Calculate starting position
-        total_width = 12 * rect_width + 11 * rect_spacing
-        start_x = (WINDOW_WIDTH - total_width) // 2
-        start_y = WINDOW_HEIGHT - rect_height - RECT_BOTTOM_OFFSET
+        start_x = RECT_START_X 
+        start_y = RECT_START_Y 
         
         # Draw each skill
         for i in range(12):
