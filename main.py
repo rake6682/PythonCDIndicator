@@ -168,6 +168,7 @@ class TransparentOverlay(QMainWindow):
                     skill['right_cooldown'] = 0
                     skill['left_pending'] = False
                     skill['right_pending'] = False
+                    skill['mode'] = 0
                 for timer_state in self.skill_timers.values():
                     timer_state['last_click_timer'] = None
                 self.currently_equipped = None
