@@ -13,18 +13,18 @@
     "start_y": 1430 
   },
     "equip_detection": {
-    "enabled": true,
+    "enabled": false,
     "sample_offset_x": 10,
     "sample_offset_y": 46
     },
     "text": {
     "font_family": "Arial",
     "font_size": 15,
-    "left_click_color": [255, 255, 0],
+    "left_click_color": [0, 0, 0],
     "left_click_alpha": 200,
     "left_ready_color": [0, 255, 120],
     "left_ready_alpha": 220,
-    "right_click_color": [255, 165, 0],
+    "right_click_color": [255, 0, 0],
     "right_click_alpha": 200,
     "right_ready_color": [0, 255, 120],
     "right_ready_alpha": 220
@@ -41,18 +41,18 @@
 
   },
   "skills": {
-    "0": { "left": 3.0, "right": 3.0, "modifier": 0 },
-    "1": { "left": 3.0, "right": 3.0, "modifier": 1 },
-    "2": { "left": 3.0, "right": 3.0, "modifier": 0 },
-    "3": { "left": 3.0, "right": 3.0, "modifier": 0 },
-    "4": { "left": 3.0, "right": 3.0, "modifier": 0 },
-    "5": { "left": 3.0, "right": 3.0, "modifier": 0 },
-    "6": { "left": 3.0, "right": 3.0, "modifier": 0 },
-    "7": { "left": 3.0, "right": 3.0, "modifier": 0 },
-    "8": { "left": 3.0, "right": 3.0, "modifier": 0 },
-    "9": { "left": 3.0, "right": 3.0, "modifier": 0 },
-    "10": { "left": 3.0, "right": 3.0, "modifier": 0 },
-    "11": { "left": 3.0, "right": 3.0, "modifier": 0 }
+    "0": { "left": 0.0, "right": 2.4, "modifier": 0 },
+    "1": { "left": 8.8, "right": 0, "modifier": 1 },
+    "2": { "left": 11, "right": 0, "modifier": 0 },
+    "3": { "left": 7, "right": 0, "modifier": 1 },
+    "4": { "left": 30.8, "right": 0, "modifier": 0 },
+    "5": { "left": 10.5, "right": 0, "modifier": 0 },
+    "6": { "left": 10.5, "right": 0, "modifier": 0 },
+    "7": { "left": 0, "right": 10, "modifier": 0 },
+    "8": { "left": 0, "right": 3.0, "modifier": 0 },
+    "9": { "left": 2.0, "right": 3.0, "modifier": 0 },
+    "10": { "left": 35.0, "right": 0.0, "modifier": 0 },
+    "11": { "left": 35.0, "right": 0.0, "modifier": 0 }
   },
   "visibility": {
     "roblox_window_name": "Roblox"

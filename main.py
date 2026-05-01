@@ -169,20 +169,21 @@ class TransparentOverlay(QMainWindow):
                     timer_state['last_click_timer'] = None
                 self.currently_equipped = None
                 return
-        # Handles equips based on key inputs; only if equip detection is disabled 
-            # Map pynput keys to skill indices
-            # key_map = {
-            #     '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '0': 9, '-': 10, '=': 11
-            # }
-            
-            # if hasattr(key, 'char') and key.char in key_map: 
-            #     skill_index = key_map[key.char]
-            #     if self.manual_visibility == True or (self.manual_visibility is None and self.overlay_visible):
-            #         # Toggle: if already equipped, unequip; otherwise equip; only when not hidden 
-            #         if self.currently_equipped == skill_index:
-            #             self.currently_equipped = None
-            #         else:
-            #             self.currently_equipped = skill_index
+        # Handles equips based on key inputs; only if equip detection is disabled
+            if not CONFIG.get('equip_detection', {}).get('enabled', True):
+                # Map pynput keys to skill indices
+                key_map = {
+                    '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '0': 9, '-': 10, '=': 11
+                }
+                
+                if hasattr(key, 'char') and key.char in key_map: 
+                    skill_index = key_map[key.char]
+                    if self.manual_visibility == True or (self.manual_visibility is None and self.overlay_visible):
+                        # Toggle: if already equipped, unequip; otherwise equip; only when not hidden 
+                        if self.currently_equipped == skill_index:
+                            self.currently_equipped = None
+                        else:
+                            self.currently_equipped = skill_index
         except AttributeError:
             pass
     
@@ -196,8 +197,8 @@ class TransparentOverlay(QMainWindow):
             self.overlay_visible = is_roblox_active()
 
         # Always hide if no roblox
-        # if not is_roblox_active():
-        #     self.overlay_visible = False
+        if not is_roblox_active():
+            self.overlay_visible = False
         self.update()
     
     def on_mouse_click(self, x, y, button, pressed):
@@ -252,8 +253,10 @@ class TransparentOverlay(QMainWindow):
             if brightness > best_brightness:
                 best_brightness = brightness
                 best_index = i
+            # print(f"Skill {i}: brightness={brightness:.1f}, best={best_brightness:.1f}")
 
         self.currently_equipped = best_index 
+        self.update()
     
     def update_cooldowns(self):
         dt = TIMERS['update_interval_ms'] / 1000.0
