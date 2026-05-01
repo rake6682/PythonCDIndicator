@@ -222,7 +222,7 @@ class TransparentOverlay(QMainWindow):
 
         if skill['modifier'] == 0:
             # Only left click can trigger mode
-            if button == mouse.Button.left and skill['left_cooldown'] == 0:
+            if button == mouse.Button.left and skill['left_cooldown'] == 0 and skill['mode'] == 0:
                 if skill['mode_max'] > 0:
                     skill['mode'] = skill['mode_max']
                 else:
@@ -367,11 +367,16 @@ class TransparentOverlay(QMainWindow):
                 sample_x = start_x + i * (rect_width + rect_spacing) + offset_x
                 sample_y = start_y - rect_height + offset_y
                 painter.drawEllipse(sample_x - 4, sample_y - 4, 8, 8)
-    
     def draw_skill_text(self, painter, x, y, width, height, skill):
-        # Determine whether to show mode or cd
+        font = QFont(TEXT_CONFIG['font_family'], TEXT_CONFIG['font_size'])
+        font.setBold(True)
+        painter.setFont(font)
+        metrics = painter.fontMetrics()
+        text_y = y - height
+        baseline_y = text_y + height + 5
+
+        # ---- 1. If mode is active: show only mode, single text ----
         if skill['mode'] > 0:
-            # Show mode timer
             text = f"{skill['mode']:.1f}"
             color = QColor(
                 TEXT_CONFIG['mode_color'][0],
@@ -379,69 +384,14 @@ class TransparentOverlay(QMainWindow):
                 TEXT_CONFIG['mode_color'][2],
                 TEXT_CONFIG['mode_alpha']
             )
-            ready_text = None
-        elif skill['left_cooldown'] > 0 or skill['right_cooldown'] > 0:
-            # Show left/right as before
-            if skill['left_cooldown'] > 0:
-                left_text = f"{skill['left_cooldown']:.1f}"
-                left_color = QColor(
-                    TEXT_CONFIG['left_click_color'][0],
-                    TEXT_CONFIG['left_click_color'][1],
-                    TEXT_CONFIG['left_click_color'][2],
-                    TEXT_CONFIG['left_click_alpha']
-                )
-            else:
-                left_text = "RDY"
-                left_color = QColor(
-                    TEXT_CONFIG['left_ready_color'][0],
-                    TEXT_CONFIG['left_ready_color'][1],
-                    TEXT_CONFIG['left_ready_color'][2],
-                    TEXT_CONFIG['left_ready_alpha']
-                )
-
-            if skill['right_cooldown'] > 0:
-                right_text = f"{skill['right_cooldown']:.1f}"
-                right_color = QColor(
-                    TEXT_CONFIG['right_click_color'][0],
-                    TEXT_CONFIG['right_click_color'][1],
-                    TEXT_CONFIG['right_click_color'][2],
-                    TEXT_CONFIG['right_click_alpha']
-                )
-            else:
-                right_text = "RDY"
-                right_color = QColor(
-                    TEXT_CONFIG['right_ready_color'][0],
-                    TEXT_CONFIG['right_ready_color'][1],
-                    TEXT_CONFIG['right_ready_color'][2],
-                    TEXT_CONFIG['right_ready_alpha']
-                )
-
-            font = QFont(TEXT_CONFIG['font_family'], TEXT_CONFIG['font_size'])
-            font.setBold(True)
-            painter.setFont(font)
-
-            metrics = painter.fontMetrics()
-            left_w = metrics.horizontalAdvance(left_text)
-            sep_w = metrics.horizontalAdvance("/")
-            right_w = metrics.horizontalAdvance(right_text)
-            total_w = left_w + sep_w + right_w
-
-            text_y = y - height
-            left_x = x + (width - total_w) // 2
-            baseline_y = text_y + height + 5
-
-            painter.setPen(left_color)
-            painter.drawText(left_x, baseline_y, left_text)
-
-            painter.setPen(QColor(255, 255, 255, 200))
-            painter.drawText(left_x + left_w, baseline_y, "/")
-
-            painter.setPen(right_color)
-            painter.drawText(left_x + left_w + sep_w, baseline_y, right_text)
-
+            w = metrics.horizontalAdvance(text)
+            left_x = x + (width - w) // 2
+            painter.setPen(color)
+            painter.drawText(left_x, baseline_y, text)
             return
-        else:
-            # Show RDY (no mode or cd)
+
+        # ---- 2. If both left and right are ready (no CD): single "RDY" ----
+        if skill['left_cooldown'] == 0 and skill['right_cooldown'] == 0:
             text = "RDY"
             color = QColor(
                 TEXT_CONFIG['left_ready_color'][0],
@@ -449,20 +399,100 @@ class TransparentOverlay(QMainWindow):
                 TEXT_CONFIG['left_ready_color'][2],
                 TEXT_CONFIG['left_ready_alpha']
             )
+            w = metrics.horizontalAdvance(text)
+            left_x = x + (width - w) // 2
+            painter.setPen(color)
+            painter.drawText(left_x, baseline_y, text)
+            return
 
-        # Only one text shown in the same slot
-        font = QFont(TEXT_CONFIG['font_family'], TEXT_CONFIG['font_size'])
-        font.setBold(True)
-        painter.setFont(font)
+        # ---- 3. Decide layout based on whether BOTH left and right have CDs ----
+        left_has_cd = skill['left_max_cooldown'] > 0
+        right_has_cd = skill['right_max_cooldown'] > 0
 
-        metrics = painter.fontMetrics()
-        total_w = metrics.horizontalAdvance(text)
-        text_y = y - height
+        # If only one side is configured (no CD on one side), use single text
+        if not left_has_cd or not right_has_cd:
+            # Prefer left if it exists, otherwise right
+            if left_has_cd:
+                cd = skill['left_cooldown']
+                max_cd = skill['left_max_cooldown']
+                text = f"{cd:.1f}" if cd > 0 else "RDY"
+                color = QColor(
+                    TEXT_CONFIG['left_click_color'][0],
+                    TEXT_CONFIG['left_click_color'][1],
+                    TEXT_CONFIG['left_click_color'][2],
+                    TEXT_CONFIG['left_click_alpha']
+                ) if cd > 0 else QColor(
+                    TEXT_CONFIG['left_ready_color'][0],
+                    TEXT_CONFIG['left_ready_color'][1],
+                    TEXT_CONFIG['left_ready_color'][2],
+                    TEXT_CONFIG['left_ready_alpha']
+                )
+            elif right_has_cd:
+                cd = skill['right_cooldown']
+                max_cd = skill['right_max_cooldown']
+                text = f"{cd:.1f}" if cd > 0 else "RDY"
+                color = QColor(
+                    TEXT_CONFIG['right_click_color'][0],
+                    TEXT_CONFIG['right_click_color'][1],
+                    TEXT_CONFIG['right_click_color'][2],
+                    TEXT_CONFIG['right_click_alpha']
+                ) if cd > 0 else QColor(
+                    TEXT_CONFIG['right_ready_color'][0],
+                    TEXT_CONFIG['right_ready_color'][1],
+                    TEXT_CONFIG['right_ready_color'][2],
+                    TEXT_CONFIG['right_ready_alpha']
+                )
+            else:
+                return  # no left/right cd ever defined
+
+            w = metrics.horizontalAdvance(text)
+            left_x = x + (width - w) // 2
+            painter.setPen(color)
+            painter.drawText(left_x, baseline_y, text)
+            return
+
+        # ---- 4. Both left and right have CDs: use split view ----
+        left_text = f"{skill['left_cooldown']:.1f}" if skill['left_cooldown'] > 0 else "RDY"
+        right_text = f"{skill['right_cooldown']:.1f}" if skill['right_cooldown'] > 0 else "RDY"
+
+        left_color = QColor(
+            TEXT_CONFIG['left_click_color'][0],
+            TEXT_CONFIG['left_click_color'][1],
+            TEXT_CONFIG['left_click_color'][2],
+            TEXT_CONFIG['left_click_alpha']
+        ) if skill['left_cooldown'] > 0 else QColor(
+            TEXT_CONFIG['left_ready_color'][0],
+            TEXT_CONFIG['left_ready_color'][1],
+            TEXT_CONFIG['left_ready_color'][2],
+            TEXT_CONFIG['left_ready_alpha']
+        )
+
+        right_color = QColor(
+            TEXT_CONFIG['right_click_color'][0],
+            TEXT_CONFIG['right_click_color'][1],
+            TEXT_CONFIG['right_click_color'][2],
+            TEXT_CONFIG['right_click_alpha']
+        ) if skill['right_cooldown'] > 0 else QColor(
+            TEXT_CONFIG['right_ready_color'][0],
+            TEXT_CONFIG['right_ready_color'][1],
+            TEXT_CONFIG['right_ready_color'][2],
+            TEXT_CONFIG['right_ready_alpha']
+        )
+
+        sep_w = metrics.horizontalAdvance("/")
+        left_w = metrics.horizontalAdvance(left_text)
+        right_w = metrics.horizontalAdvance(right_text)
+        total_w = left_w + sep_w + right_w
         left_x = x + (width - total_w) // 2
-        baseline_y = text_y + height + 5
 
-        painter.setPen(color)
-        painter.drawText(left_x, baseline_y, text)
+        painter.setPen(left_color)
+        painter.drawText(left_x, baseline_y, left_text)
+
+        painter.setPen(QColor(255, 255, 255, 200))
+        painter.drawText(left_x + left_w, baseline_y, "/")
+
+        painter.setPen(right_color)
+        painter.drawText(left_x + left_w + sep_w, baseline_y, right_text) 
 def main():
     app = QApplication(sys.argv)
     overlay = TransparentOverlay()

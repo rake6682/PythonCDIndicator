@@ -53,8 +53,8 @@
     "7": { "left": 0, "right": 10, "modifier": 0, "mode" : 0 },
     "8": { "left": 0, "right": 3.0, "modifier": 0, "mode" : 0 },
     "9": { "left": 2.0, "right": 3.0, "modifier": 0, "mode" : 0 },
-    "10": { "left": 15.0, "right": 0.0, "modifier": 0, "mode" : 10 },
-    "11": { "left": 15.0, "right": 0.0, "modifier": 0, "mode" : 10 }
+    "10": { "left": 25.0, "right": 0.0, "modifier": 0, "mode" : 10 },
+    "11": { "left": 25.0, "right": 0.0, "modifier": 0, "mode" : 10 }
   },
   "visibility": {
     "roblox_window_name": "Roblox"
