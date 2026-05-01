@@ -2,9 +2,10 @@ import sys
 import json
 import os
 import platform
+from time import time
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
-from PyQt5.QtGui import QPainter, QColor, QPen
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QGuiApplication
+from PyQt5.QtCore import Qt, QTimer, QRect, QElapsedTimer
 from pynput import mouse, keyboard
 
 # Platform-specific window detection
@@ -35,19 +36,21 @@ RECT_WIDTH = CONFIG['rectangles']['width']
 RECT_HEIGHT = CONFIG['rectangles']['height']
 RECT_SPACING = CONFIG['rectangles']['spacing']
 RECT_BOTTOM_OFFSET = CONFIG['rectangles']['bottom_offset']
-RECT_START_X = CONFIG['rectangles'].get('start_x', None)
-RECT_START_Y = CONFIG['rectangles'].get('start_y', None)
+START_X = CONFIG['rectangles']['start_x']
+START_Y = CONFIG['rectangles']['start_y']
 
+TEXT_CONFIG = CONFIG['text']
 COLORS = CONFIG['colors']
 TIMERS = CONFIG['timers']
 VISIBILITY_CONFIG = CONFIG['visibility']
 
-# Build skill cooldowns from config
-SKILL_COOLDOWNS = {}
-for skill_id, cooldowns in CONFIG['skills'].items():
-    SKILL_COOLDOWNS[int(skill_id)] = {
-        'left': cooldowns['left'],
-        'right': cooldowns['right']
+# Build skill settings from config
+SKILL_SETTINGS = {}
+for skill_id, data in CONFIG['skills'].items():
+    SKILL_SETTINGS[int(skill_id)] = {
+        'left': data['left'],
+        'right': data['right'],
+        'modifier': data.get('modifier', 0)
     }
 
 def get_active_window_title():
@@ -63,6 +66,9 @@ def get_active_window_title():
     except:
         pass
     return ''
+def get_pixel_brightness(screen, x, y):
+    color = screen.grabWindow(0, x, y, 1, 1).toImage().pixelColor(0, 0)
+    return (color.red() + color.green() + color.blue()) / 3.0
 
 def is_roblox_active():
     """Check if Roblox is the active window"""
@@ -87,21 +93,21 @@ class TransparentOverlay(QMainWindow):
         
         # Skills data
         self.skills = {}
+        self.skill_timers = {}
         for i in range(12):
             self.skills[i] = {
                 'left_cooldown': 0.0,
                 'right_cooldown': 0.0,
-                'left_max_cooldown': SKILL_COOLDOWNS[i]['left'],
-                'right_max_cooldown': SKILL_COOLDOWNS[i]['right']
+                'left_max_cooldown': SKILL_SETTINGS[i]['left'],
+                'right_max_cooldown': SKILL_SETTINGS[i]['right'],
+                'modifier': SKILL_SETTINGS[i]['modifier'],
+                'left_pending': False,
+                'right_pending': False
             }
-        
-        # Skill key mapping (Qt keys - no longer used, replaced with global keyboard listener)
-        # Kept for reference
-        self.skill_keys = {
-            Qt.Key_1: 0, Qt.Key_2: 1, Qt.Key_3: 2, Qt.Key_4: 3,
-            Qt.Key_5: 4, Qt.Key_6: 5, Qt.Key_7: 6, Qt.Key_8: 7,
-            Qt.Key_9: 8, Qt.Key_0: 9, Qt.Key_Minus: 10, Qt.Key_Equal: 11
-        }
+            # Timer for modifier 1 spam-click detection
+            self.skill_timers[i] = {
+                'last_click_timer': None
+            }
         
         self.currently_equipped = None
         
@@ -118,7 +124,13 @@ class TransparentOverlay(QMainWindow):
         self.roblox_timer = QTimer()
         self.roblox_timer.timeout.connect(self.check_roblox_window)
         self.roblox_timer.start(TIMERS['roblox_check_interval_ms'])  # From config
-        
+
+        # Skill equip detection timer
+        if CONFIG.get('equip_detection', {}).get('enabled', True):
+            self.equip_timer = QTimer()
+            self.equip_timer.timeout.connect(self.update_equipped_skill)
+            self.equip_timer.start(TIMERS['equip_check_interval_ms']) 
+
         # Global mouse listener
         self.mouse_listener = mouse.Listener(on_click=self.on_mouse_click)
         self.mouse_listener.start()
@@ -152,15 +164,19 @@ class TransparentOverlay(QMainWindow):
                 for skill in self.skills.values():
                     skill['left_cooldown'] = 0
                     skill['right_cooldown'] = 0
+                    skill['left_pending'] = False
+                    skill['right_pending'] = False
+                for timer_state in self.skill_timers.values():
+                    timer_state['last_click_timer'] = None
                 self.currently_equipped = None
                 return
-            
+        # Handles equips based on key inputs
             # Map pynput keys to skill indices
             key_map = {
                 '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '0': 9, '-': 10, '=': 11
             }
             
-            if hasattr(key, 'char') and key.char in key_map:
+            if hasattr(key, 'char') and key.char in key_map and CONFIG.get('equip_detection', {}).get('enabled', False):
                 skill_index = key_map[key.char]
                 if self.manual_visibility == True or (self.manual_visibility is None and self.overlay_visible):
                     # Toggle: if already equipped, unequip; otherwise equip; only when not hidden 
@@ -179,34 +195,94 @@ class TransparentOverlay(QMainWindow):
         else:
             # Auto mode - follow Roblox window
             self.overlay_visible = is_roblox_active()
+
+        # Always hide if no roblox
+        # if not is_roblox_active():
+        #     self.overlay_visible = False
         self.update()
     
     def on_mouse_click(self, x, y, button, pressed):
-        """Handle global mouse clicks"""
         if not pressed or self.currently_equipped is None:
             return
-        
+
         skill = self.skills[self.currently_equipped]
-        
-        if button == mouse.Button.left:
-            if skill['left_cooldown'] == 0:
+
+        if skill['modifier'] == 0:
+            if button == mouse.Button.left and skill['left_cooldown'] == 0:
                 skill['left_cooldown'] = skill['left_max_cooldown']
-        elif button == mouse.Button.right:
-            if skill['right_cooldown'] == 0:
+            elif button == mouse.Button.right and skill['right_cooldown'] == 0:
                 skill['right_cooldown'] = skill['right_max_cooldown']
+
+        elif skill['modifier'] == 1:
+            timer = self.skill_timers[self.currently_equipped]['last_click_timer']
+            if timer is None:
+                timer = QElapsedTimer()
+                self.skill_timers[self.currently_equipped]['last_click_timer'] = timer
+            timer.restart()
+
+            if button == mouse.Button.left:
+                skill['left_pending'] = True
+            elif button == mouse.Button.right:
+                skill['right_pending'] = True 
+
+    # Handles equips based on brightness
+    def update_equipped_skill(self):
+        if not self.overlay_visible or not CONFIG.get('equip_detection', {}).get('enabled', True):
+            self.currently_equipped = None
+            return
+
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            self.currently_equipped = None
+            return
+
+        detect_cfg = CONFIG['equip_detection']
+        threshold = detect_cfg.get('brightness_threshold', 140)
+        offset_x = detect_cfg.get('sample_offset_x', RECT_WIDTH // 2)
+        offset_y = detect_cfg.get('sample_offset_y', RECT_HEIGHT // 2)
+        start_x = START_X
+        start_y = START_Y - RECT_BOTTOM_OFFSET
+
+        equipped = None
+        for i in range(12):
+            x = start_x + i * (RECT_WIDTH + RECT_SPACING) + offset_x
+            y = start_y - RECT_HEIGHT + offset_y
+
+            if get_pixel_brightness(screen, x, y) >= threshold:
+                equipped = i
+                break
+
+        self.currently_equipped = equipped    
     
     def update_cooldowns(self):
-        """Update cooldowns"""
-        dt = TIMERS['update_interval_ms'] / 1000.0  # Convert to seconds from config
-        for skill in self.skills.values():
+        dt = TIMERS['update_interval_ms'] / 1000.0
+
+        for i, skill in self.skills.items():
+            # Checks if we still spamming clicks; if we stopped, then start the cd
+            if skill['modifier'] == 1:
+                timer = self.skill_timers[i]['last_click_timer']
+                if timer is not None and timer.isValid():
+                    if timer.elapsed() >= TIMERS['modifier_1_no_click_time_ms']:
+                        if skill['left_pending'] and skill['left_cooldown'] == 0:
+                            skill['left_cooldown'] = skill['left_max_cooldown']
+                            skill['left_pending'] = False
+
+                        if skill['right_pending'] and skill['right_cooldown'] == 0:
+                            skill['right_cooldown'] = skill['right_max_cooldown']
+                            skill['right_pending'] = False
+
+                        self.skill_timers[i]['last_click_timer'] = None
+            # Standard cd timer
             if skill['left_cooldown'] > 0:
                 skill['left_cooldown'] -= dt
                 if skill['left_cooldown'] < 0:
                     skill['left_cooldown'] = 0
+
             if skill['right_cooldown'] > 0:
                 skill['right_cooldown'] -= dt
                 if skill['right_cooldown'] < 0:
                     skill['right_cooldown'] = 0
+
         self.update()
     
     def paintEvent(self, event):
@@ -223,68 +299,82 @@ class TransparentOverlay(QMainWindow):
         rect_height = RECT_HEIGHT
         rect_spacing = RECT_SPACING
         
-        start_x = RECT_START_X 
-        start_y = RECT_START_Y 
+        start_x = START_X
+        start_y = START_Y - RECT_BOTTOM_OFFSET
         
         # Draw each skill
         for i in range(12):
             skill = self.skills[i]
             x = start_x + i * (rect_width + rect_spacing)
-            y = start_y
             
-            # Draw left-click rectangle
-            self.draw_cooldown_rect(painter, x, y, rect_width, rect_height, 
-                                   skill['left_cooldown'], skill['left_max_cooldown'])
-            
-            # Draw right-click rectangle if active
-            if skill['right_cooldown'] > 0:
-                self.draw_cooldown_rect(painter, x, y - rect_height - 5, rect_width, rect_height,
-                                       skill['right_cooldown'], skill['right_max_cooldown'], is_right=True)
-            
-            # Draw equipped indicator
+            # Draw equipped indicator (highlight the skill if equipped)
             if self.currently_equipped == i:
                 pen = QPen(QColor(COLORS['equipped_indicator'][0], COLORS['equipped_indicator'][1], 
                                  COLORS['equipped_indicator'][2]), COLORS['equipped_indicator_width'])
                 painter.setPen(pen)
-                painter.drawRect(x - 3, y - 3, rect_width + 6, rect_height + 6)
-    
-    def draw_cooldown_rect(self, painter, x, y, width, height, cooldown, max_cooldown, is_right=False):
-        """Draw a rectangle with cooldown effect"""
-        # Background color from config
-        if cooldown > 0:
-            color = QColor(COLORS['rect_cooldown'][0], COLORS['rect_cooldown'][1], 
-                          COLORS['rect_cooldown'][2], COLORS['rect_cooldown_alpha'])
-        else:
-            color = QColor(COLORS['rect_ready'][0], COLORS['rect_ready'][1], 
-                          COLORS['rect_ready'][2], COLORS['rect_ready_alpha'])
-        
-        # Draw main rectangle
-        painter.fillRect(x, y, width, height, color)
-        
-        # Draw cooldown shrinking bar (height only)
-        if cooldown > 0:
-            cooldown_percentage = cooldown / max_cooldown
-            shrink_height = int(height * cooldown_percentage)
-            shrink_y = y + height - shrink_height
+                painter.drawRect(x - 3, start_y - rect_height - 3, rect_width + 6, rect_height + 6)
             
-            cooldown_color = QColor(COLORS['rect_cooldown_bar'][0], COLORS['rect_cooldown_bar'][1],
-                                   COLORS['rect_cooldown_bar'][2], COLORS['rect_cooldown_bar_alpha'])
-            painter.fillRect(x, shrink_y, width, shrink_height, cooldown_color)
-        
-        # Draw border from config
-        pen = QPen(QColor(COLORS['rect_border'][0], COLORS['rect_border'][1], 
-                         COLORS['rect_border'][2], COLORS['rect_border_alpha']), 
-                  COLORS['rect_border_width'])
-        painter.setPen(pen)
-        painter.drawRect(x, y, width, height)
-        
-        # Draw indicator for right-click
-        if is_right:
-            pen = QPen(QColor(COLORS['right_click_indicator'][0], COLORS['right_click_indicator'][1],
-                             COLORS['right_click_indicator'][2], COLORS['right_click_indicator_alpha']), 2)
-            painter.setPen(pen)
-            indicator_size = COLORS['right_click_indicator_size']
-            painter.drawEllipse(x + width - indicator_size - 6, y + 8, indicator_size, indicator_size)
+            # Draw left/right click text with "/" separator
+            self.draw_skill_text(painter, x, start_y, rect_width, rect_height, skill)
+    
+    def draw_skill_text(self, painter, x, y, width, height, skill):
+        if skill['left_cooldown'] > 0:
+            left_text = f"{skill['left_cooldown']:.1f}"
+            left_color = QColor(
+            TEXT_CONFIG['left_click_color'][0],
+            TEXT_CONFIG['left_click_color'][1],
+            TEXT_CONFIG['left_click_color'][2],
+            TEXT_CONFIG['left_click_alpha']
+        )
+        else:
+            left_text = "RDY"
+            left_color = QColor(
+                TEXT_CONFIG['left_ready_color'][0],
+                TEXT_CONFIG['left_ready_color'][1],
+                TEXT_CONFIG['left_ready_color'][2],
+                TEXT_CONFIG['left_ready_alpha']
+            )
+
+        if skill['right_cooldown'] > 0:
+            right_text = f"{skill['right_cooldown']:.1f}"
+            right_color = QColor(
+            TEXT_CONFIG['right_click_color'][0],
+            TEXT_CONFIG['right_click_color'][1],
+            TEXT_CONFIG['right_click_color'][2],
+            TEXT_CONFIG['right_click_alpha']
+        )
+        else:
+            right_text = "RDY"
+            right_color = QColor(
+                TEXT_CONFIG['right_ready_color'][0],
+                TEXT_CONFIG['right_ready_color'][1],
+                TEXT_CONFIG['right_ready_color'][2],
+                TEXT_CONFIG['right_ready_alpha']
+            )
+
+        font = QFont(TEXT_CONFIG['font_family'], TEXT_CONFIG['font_size'])
+        font.setBold(True)
+        painter.setFont(font)
+
+        metrics = painter.fontMetrics()
+        left_w = metrics.horizontalAdvance(left_text)
+        sep_w = metrics.horizontalAdvance("/")
+        right_w = metrics.horizontalAdvance(right_text)
+        total_w = left_w + sep_w + right_w
+
+        text_y = y - height
+        left_x = x + (width - total_w) // 2
+        baseline_y = text_y + height + 5 
+
+        painter.setPen(left_color)
+        painter.drawText(left_x, baseline_y, left_text)
+
+        painter.setPen(QColor(255, 255, 255, 200))
+        painter.drawText(left_x + left_w, baseline_y, "/")
+
+        painter.setPen(right_color)
+        painter.drawText(left_x + left_w + sep_w, baseline_y, right_text) 
+    
 
 def main():
     app = QApplication(sys.argv)
