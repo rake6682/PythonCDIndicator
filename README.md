@@ -1,17 +1,16 @@
 # CD Indicator
 
-A cooldown indicator program for video games, displaying 12 skill slots with separate left and right-click cooldowns.
+A cooldown indicator program for rogue lineage, displaying 12 skill slots with separate left and right-click cooldowns.
 
 ## Features
 
 - **12 Skill Slots**: Mapped to keys 1-9, 0, -, and =
 - **Separate Cooldowns**: Each skill has independent left-click and right-click cooldowns
-- **Smooth Animation**: Rectangles shrink smoothly as cooldown progresses
-- **Dual-Click Display**: When both left and right clicks are used, the right-click cooldown appears above the left-click indicator
+- **Dual-Click Display**: When both left and right clicks are used, the right-click cooldown appears beside the left click indicator
 - **Visual Feedback**: 
   - Yellow border shows which skill is currently equipped
-  - Red indicator dot on right-click rectangles for identification
-  - Color changes during cooldown
+  - Text shows RDY when skill is ready
+  - Color changes during cooldown or mode
 
 ## Controls
 
@@ -26,12 +25,12 @@ A cooldown indicator program for video games, displaying 12 skill slots with sep
 1. Press a key (1-9, 0, -, =) to equip a skill
 2. Left-click to use the left-click version (starts left cooldown)
 3. Right-click to use the right-click version (starts right cooldown)
-4. Watch as the rectangles shrink during cooldown
-5. Once cooldown completes, the rectangle returns to full size and can be used again
+5. Once cooldown completes, skill can be re-used
+6. Configure to your heart's content in config.py
 
 ## Installation
 
-Install the required dependency:
+Install the required dependencies:
 
 ```bash
 pip install PyQt5
@@ -45,17 +44,20 @@ python main.py
 ```
 
 ## Cooldown Settings
+- Modifer 0 to start cd on press, modifier 1 to start cd after you stop clicking(for moves that you usually spam like flock/grapple/shadowrush)
+- Mode is for moves like bane; the mode timer will run, then the cd timer will run
 
-By default, each skill has a 3-second cooldown. To adjust this, modify the `COOLDOWN_TIME` constant in `main.py`:
+## Visual Settings
 
-```python
-COOLDOWN_TIME = 3.0  # Change this value in seconds
-```
+- Change window size and height to be as big as you want; window is invisible anyways
+- Adjust start_x and start_y so that the equip indicator lines up with your hotbar
+- Adjust rectangle size and spacing so that indicator lines up correctly
+- Adjust bottom offset if its too close to the bottom of your screen (or just adjust start_y)
+- Left_click_color and right_click_color are the colors and alphas while the move is on cd
+- left_ready color and right_ready color are the colors and alphas while move is off cd
+- mode color and alpha is the color/alpha while the mode of the skill is active
+- 
 
-## Visual Design
-
-- Rectangles are semi-transparent with smooth shrinking effect
-- Darker color indicates active cooldown
-- Original blue color shows ready state
-- Left-click rectangles are positioned at the bottom
-- Right-click rectangles pop up above when both are active
+## Other Features
+- equip detection attempts to use brightness to automatically tell what you have equipped (doesn't work well atm)
+- Adjust timers to update the intervals the program uses to update cds/check if roblox is running/waits for you to stop clicking for modifier 1 skills
