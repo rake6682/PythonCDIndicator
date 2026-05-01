@@ -2,7 +2,6 @@ import sys
 import json
 import os
 import platform
-from time import time
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QGuiApplication
 from PyQt5.QtCore import Qt, QTimer, QRect, QElapsedTimer
@@ -170,20 +169,20 @@ class TransparentOverlay(QMainWindow):
                     timer_state['last_click_timer'] = None
                 self.currently_equipped = None
                 return
-        # Handles equips based on key inputs
+        # Handles equips based on key inputs; only if equip detection is disabled 
             # Map pynput keys to skill indices
-            key_map = {
-                '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '0': 9, '-': 10, '=': 11
-            }
+            # key_map = {
+            #     '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '0': 9, '-': 10, '=': 11
+            # }
             
-            if hasattr(key, 'char') and key.char in key_map and CONFIG.get('equip_detection', {}).get('enabled', False):
-                skill_index = key_map[key.char]
-                if self.manual_visibility == True or (self.manual_visibility is None and self.overlay_visible):
-                    # Toggle: if already equipped, unequip; otherwise equip; only when not hidden 
-                    if self.currently_equipped == skill_index:
-                        self.currently_equipped = None
-                    else:
-                        self.currently_equipped = skill_index
+            # if hasattr(key, 'char') and key.char in key_map: 
+            #     skill_index = key_map[key.char]
+            #     if self.manual_visibility == True or (self.manual_visibility is None and self.overlay_visible):
+            #         # Toggle: if already equipped, unequip; otherwise equip; only when not hidden 
+            #         if self.currently_equipped == skill_index:
+            #             self.currently_equipped = None
+            #         else:
+            #             self.currently_equipped = skill_index
         except AttributeError:
             pass
     
@@ -237,22 +236,24 @@ class TransparentOverlay(QMainWindow):
             return
 
         detect_cfg = CONFIG['equip_detection']
-        threshold = detect_cfg.get('brightness_threshold', 140)
         offset_x = detect_cfg.get('sample_offset_x', RECT_WIDTH // 2)
         offset_y = detect_cfg.get('sample_offset_y', RECT_HEIGHT // 2)
         start_x = START_X
         start_y = START_Y - RECT_BOTTOM_OFFSET
 
-        equipped = None
+        best_index = None
+        best_brightness = -1
+
         for i in range(12):
             x = start_x + i * (RECT_WIDTH + RECT_SPACING) + offset_x
             y = start_y - RECT_HEIGHT + offset_y
+            brightness = get_pixel_brightness(screen, x, y)
 
-            if get_pixel_brightness(screen, x, y) >= threshold:
-                equipped = i
-                break
+            if brightness > best_brightness:
+                best_brightness = brightness
+                best_index = i
 
-        self.currently_equipped = equipped    
+        self.currently_equipped = best_index 
     
     def update_cooldowns(self):
         dt = TIMERS['update_interval_ms'] / 1000.0
@@ -313,9 +314,22 @@ class TransparentOverlay(QMainWindow):
                                  COLORS['equipped_indicator'][2]), COLORS['equipped_indicator_width'])
                 painter.setPen(pen)
                 painter.drawRect(x - 3, start_y - rect_height - 3, rect_width + 6, rect_height + 6)
-            
             # Draw left/right click text with "/" separator
             self.draw_skill_text(painter, x, start_y, rect_width, rect_height, skill)
+        
+        # Debug brightness sampling points for equip detection
+        detect_cfg = CONFIG.get('equip_detection', {})
+        offset_x = detect_cfg.get('sample_offset_x', RECT_WIDTH // 2)
+        offset_y = detect_cfg.get('sample_offset_y', RECT_HEIGHT // 2)
+
+        if detect_cfg.get('enabled', False):
+            painter.setPen(QPen(QColor(0, 255, 255, 200), 2))
+            painter.setBrush(Qt.NoBrush)
+
+            for i in range(12):
+                sample_x = start_x + i * (rect_width + rect_spacing) + offset_x
+                sample_y = start_y - rect_height + offset_y
+                painter.drawEllipse(sample_x - 4, sample_y - 4, 8, 8)
     
     def draw_skill_text(self, painter, x, y, width, height, skill):
         if skill['left_cooldown'] > 0:

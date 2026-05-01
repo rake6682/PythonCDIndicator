@@ -14,7 +14,7 @@
   },
     "equip_detection": {
     "enabled": true,
-    "sample_offset_x": 30,
+    "sample_offset_x": 10,
     "sample_offset_y": 46
     },
     "text": {
