@@ -141,9 +141,6 @@ class TransparentOverlay(QMainWindow):
         self.keyboard_listener = keyboard.Listener(on_press=self.on_key_press)
         self.keyboard_listener.start()
 
-        self.is_f_held = False
-
-    
     def on_key_press(self, key):
         """Handle global key presses"""
         try:
@@ -164,9 +161,6 @@ class TransparentOverlay(QMainWindow):
                 self.manual_visibility = False
                 return
             
-            # Don't run cds if holding F
-            if hasattr(key, "char") and key.char and key.char.lower() == "f":
-                self.is_f_held = True
             # Handle L key (reset cooldowns and equipped skill for testing)
             if hasattr(key, 'char') and key.char == 'l':
                 for skill in self.skills.values():
@@ -196,10 +190,6 @@ class TransparentOverlay(QMainWindow):
         except AttributeError:
             pass
 
-    def on_key_release(self, key):
-        if hasattr(key, "char") and key.char and key.char.lower() == "f":
-            self.is_f_held = False
-    
     def check_roblox_window(self):
         """Check if Roblox is active and update visibility"""
         if self.manual_visibility is not None:
@@ -297,10 +287,6 @@ class TransparentOverlay(QMainWindow):
                             skill['right_pending'] = False
 
                         self.skill_timers[i]['last_click_timer'] = None
-
-            # Only tick if F is NOT held
-            if self.is_f_held:
-                continue
 
             # MODE first, then CD (only for left)
             if skill['mode'] > 0:
