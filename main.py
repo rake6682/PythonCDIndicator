@@ -49,7 +49,8 @@ for skill_id, data in CONFIG['skills'].items():
     SKILL_SETTINGS[int(skill_id)] = {
         'left': data['left'],
         'right': data['right'],
-        'modifier': data.get('modifier', 0)
+        'modifier': data.get('modifier', 0),
+        'mode': data.get('mode', 0)
     }
 
 def get_active_window_title():
@@ -101,7 +102,9 @@ class TransparentOverlay(QMainWindow):
                 'right_max_cooldown': SKILL_SETTINGS[i]['right'],
                 'modifier': SKILL_SETTINGS[i]['modifier'],
                 'left_pending': False,
-                'right_pending': False
+                'right_pending': False,
+                'mode': 0.0,           
+                'mode_max': SKILL_SETTINGS[i]['mode']
             }
             # Timer for modifier 1 spam-click detection
             self.skill_timers[i] = {
@@ -137,6 +140,9 @@ class TransparentOverlay(QMainWindow):
         # Global keyboard listener
         self.keyboard_listener = keyboard.Listener(on_press=self.on_key_press)
         self.keyboard_listener.start()
+
+        self.is_f_held = False
+
     
     def on_key_press(self, key):
         """Handle global key presses"""
@@ -157,7 +163,10 @@ class TransparentOverlay(QMainWindow):
             if hasattr(key, 'char') and key.char == '/':
                 self.manual_visibility = False
                 return
-
+            
+            # Don't run cds if holding F
+            if hasattr(key, "char") and key.char and key.char.lower() == "f":
+                self.is_f_held = True
             # Handle L key (reset cooldowns and equipped skill for testing)
             if hasattr(key, 'char') and key.char == 'l':
                 for skill in self.skills.values():
@@ -186,6 +195,10 @@ class TransparentOverlay(QMainWindow):
                             self.currently_equipped = skill_index
         except AttributeError:
             pass
+
+    def on_key_release(self, key):
+        if hasattr(key, "char") and key.char and key.char.lower() == "f":
+            self.is_f_held = False
     
     def check_roblox_window(self):
         """Check if Roblox is active and update visibility"""
@@ -208,8 +221,12 @@ class TransparentOverlay(QMainWindow):
         skill = self.skills[self.currently_equipped]
 
         if skill['modifier'] == 0:
+            # Only left click can trigger mode
             if button == mouse.Button.left and skill['left_cooldown'] == 0:
-                skill['left_cooldown'] = skill['left_max_cooldown']
+                if skill['mode_max'] > 0:
+                    skill['mode'] = skill['mode_max']
+                else:
+                    skill['left_cooldown'] = skill['left_max_cooldown']
             elif button == mouse.Button.right and skill['right_cooldown'] == 0:
                 skill['right_cooldown'] = skill['right_max_cooldown']
 
@@ -223,7 +240,7 @@ class TransparentOverlay(QMainWindow):
             if button == mouse.Button.left:
                 skill['left_pending'] = True
             elif button == mouse.Button.right:
-                skill['right_pending'] = True 
+                skill['right_pending'] = True  
 
     # Handles equips based on brightness
     def update_equipped_skill(self):
@@ -258,17 +275,21 @@ class TransparentOverlay(QMainWindow):
         self.currently_equipped = best_index 
         self.update()
     
+    # MAIN CD UPDATER
     def update_cooldowns(self):
         dt = TIMERS['update_interval_ms'] / 1000.0
 
         for i, skill in self.skills.items():
-            # Checks if we still spamming clicks; if we stopped, then start the cd
+            # Modifier 1 spam‑click logic (unchanged)
             if skill['modifier'] == 1:
                 timer = self.skill_timers[i]['last_click_timer']
                 if timer is not None and timer.isValid():
                     if timer.elapsed() >= TIMERS['modifier_1_no_click_time_ms']:
                         if skill['left_pending'] and skill['left_cooldown'] == 0:
-                            skill['left_cooldown'] = skill['left_max_cooldown']
+                            if skill['mode_max'] > 0:
+                                skill['mode'] = skill['mode_max']
+                            else:
+                                skill['left_cooldown'] = skill['left_max_cooldown']
                             skill['left_pending'] = False
 
                         if skill['right_pending'] and skill['right_cooldown'] == 0:
@@ -276,18 +297,31 @@ class TransparentOverlay(QMainWindow):
                             skill['right_pending'] = False
 
                         self.skill_timers[i]['last_click_timer'] = None
-            # Standard cd timer
-            if skill['left_cooldown'] > 0:
-                skill['left_cooldown'] -= dt
-                if skill['left_cooldown'] < 0:
-                    skill['left_cooldown'] = 0
 
-            if skill['right_cooldown'] > 0:
-                skill['right_cooldown'] -= dt
-                if skill['right_cooldown'] < 0:
-                    skill['right_cooldown'] = 0
+            # Only tick if F is NOT held
+            if self.is_f_held:
+                continue
 
-        self.update()
+            # MODE first, then CD (only for left)
+            if skill['mode'] > 0:
+                skill['mode'] -= dt
+                if skill['mode'] < 0:
+                    skill['mode'] = 0
+                    if skill['left_cooldown'] == 0:
+                        skill['left_cooldown'] = skill['left_max_cooldown']
+
+            else:  # mode is done, now normal cooldown
+                if skill['left_cooldown'] > 0:
+                    skill['left_cooldown'] -= dt
+                    if skill['left_cooldown'] < 0:
+                        skill['left_cooldown'] = 0
+
+                if skill['right_cooldown'] > 0:
+                    skill['right_cooldown'] -= dt
+                    if skill['right_cooldown'] < 0:
+                        skill['right_cooldown'] = 0
+
+        self.update() 
     
     def paintEvent(self, event):
         """Draw the overlay"""
@@ -335,64 +369,100 @@ class TransparentOverlay(QMainWindow):
                 painter.drawEllipse(sample_x - 4, sample_y - 4, 8, 8)
     
     def draw_skill_text(self, painter, x, y, width, height, skill):
-        if skill['left_cooldown'] > 0:
-            left_text = f"{skill['left_cooldown']:.1f}"
-            left_color = QColor(
-            TEXT_CONFIG['left_click_color'][0],
-            TEXT_CONFIG['left_click_color'][1],
-            TEXT_CONFIG['left_click_color'][2],
-            TEXT_CONFIG['left_click_alpha']
-        )
+        # Determine whether to show mode or cd
+        if skill['mode'] > 0:
+            # Show mode timer
+            text = f"{skill['mode']:.1f}"
+            color = QColor(
+                TEXT_CONFIG['mode_color'][0],
+                TEXT_CONFIG['mode_color'][1],
+                TEXT_CONFIG['mode_color'][2],
+                TEXT_CONFIG['mode_alpha']
+            )
+            ready_text = None
+        elif skill['left_cooldown'] > 0 or skill['right_cooldown'] > 0:
+            # Show left/right as before
+            if skill['left_cooldown'] > 0:
+                left_text = f"{skill['left_cooldown']:.1f}"
+                left_color = QColor(
+                    TEXT_CONFIG['left_click_color'][0],
+                    TEXT_CONFIG['left_click_color'][1],
+                    TEXT_CONFIG['left_click_color'][2],
+                    TEXT_CONFIG['left_click_alpha']
+                )
+            else:
+                left_text = "RDY"
+                left_color = QColor(
+                    TEXT_CONFIG['left_ready_color'][0],
+                    TEXT_CONFIG['left_ready_color'][1],
+                    TEXT_CONFIG['left_ready_color'][2],
+                    TEXT_CONFIG['left_ready_alpha']
+                )
+
+            if skill['right_cooldown'] > 0:
+                right_text = f"{skill['right_cooldown']:.1f}"
+                right_color = QColor(
+                    TEXT_CONFIG['right_click_color'][0],
+                    TEXT_CONFIG['right_click_color'][1],
+                    TEXT_CONFIG['right_click_color'][2],
+                    TEXT_CONFIG['right_click_alpha']
+                )
+            else:
+                right_text = "RDY"
+                right_color = QColor(
+                    TEXT_CONFIG['right_ready_color'][0],
+                    TEXT_CONFIG['right_ready_color'][1],
+                    TEXT_CONFIG['right_ready_color'][2],
+                    TEXT_CONFIG['right_ready_alpha']
+                )
+
+            font = QFont(TEXT_CONFIG['font_family'], TEXT_CONFIG['font_size'])
+            font.setBold(True)
+            painter.setFont(font)
+
+            metrics = painter.fontMetrics()
+            left_w = metrics.horizontalAdvance(left_text)
+            sep_w = metrics.horizontalAdvance("/")
+            right_w = metrics.horizontalAdvance(right_text)
+            total_w = left_w + sep_w + right_w
+
+            text_y = y - height
+            left_x = x + (width - total_w) // 2
+            baseline_y = text_y + height + 5
+
+            painter.setPen(left_color)
+            painter.drawText(left_x, baseline_y, left_text)
+
+            painter.setPen(QColor(255, 255, 255, 200))
+            painter.drawText(left_x + left_w, baseline_y, "/")
+
+            painter.setPen(right_color)
+            painter.drawText(left_x + left_w + sep_w, baseline_y, right_text)
+
+            return
         else:
-            left_text = "RDY"
-            left_color = QColor(
+            # Show RDY (no mode or cd)
+            text = "RDY"
+            color = QColor(
                 TEXT_CONFIG['left_ready_color'][0],
                 TEXT_CONFIG['left_ready_color'][1],
                 TEXT_CONFIG['left_ready_color'][2],
                 TEXT_CONFIG['left_ready_alpha']
             )
 
-        if skill['right_cooldown'] > 0:
-            right_text = f"{skill['right_cooldown']:.1f}"
-            right_color = QColor(
-            TEXT_CONFIG['right_click_color'][0],
-            TEXT_CONFIG['right_click_color'][1],
-            TEXT_CONFIG['right_click_color'][2],
-            TEXT_CONFIG['right_click_alpha']
-        )
-        else:
-            right_text = "RDY"
-            right_color = QColor(
-                TEXT_CONFIG['right_ready_color'][0],
-                TEXT_CONFIG['right_ready_color'][1],
-                TEXT_CONFIG['right_ready_color'][2],
-                TEXT_CONFIG['right_ready_alpha']
-            )
-
+        # Only one text shown in the same slot
         font = QFont(TEXT_CONFIG['font_family'], TEXT_CONFIG['font_size'])
         font.setBold(True)
         painter.setFont(font)
 
         metrics = painter.fontMetrics()
-        left_w = metrics.horizontalAdvance(left_text)
-        sep_w = metrics.horizontalAdvance("/")
-        right_w = metrics.horizontalAdvance(right_text)
-        total_w = left_w + sep_w + right_w
-
+        total_w = metrics.horizontalAdvance(text)
         text_y = y - height
         left_x = x + (width - total_w) // 2
-        baseline_y = text_y + height + 5 
+        baseline_y = text_y + height + 5
 
-        painter.setPen(left_color)
-        painter.drawText(left_x, baseline_y, left_text)
-
-        painter.setPen(QColor(255, 255, 255, 200))
-        painter.drawText(left_x + left_w, baseline_y, "/")
-
-        painter.setPen(right_color)
-        painter.drawText(left_x + left_w + sep_w, baseline_y, right_text) 
-    
-
+        painter.setPen(color)
+        painter.drawText(left_x, baseline_y, text)
 def main():
     app = QApplication(sys.argv)
     overlay = TransparentOverlay()
